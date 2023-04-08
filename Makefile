@@ -19,12 +19,11 @@
 all::
 install::
 live-install::
+.PHONY: @always
 
 .ONESHELL:
 
 SHORT-NAME ?= $(shell echo "$(notdir $(CURDIR))" | sed 's|_.*||')
-
--include Project/Project.mk
 
 DEST       ?= $(CURDIR)/.stage
 PREFIX     ?= /usr/local
@@ -70,7 +69,7 @@ endif
 clean::
 	rm -rf $(DEST)
 
-.PHONY: @always
+# * ----------------------------------------------------------
 
 VERSION := $(shell git describe --tags)
 PKGVER  := $(shell echo "$(VERSION)" | sed 's|[-]|+|g' | tr '[A-Z]' '[a-z]')
@@ -101,7 +100,17 @@ package: $(PACKAGE)
 clean::
 	rm -f *.tar.gz *.zst
 	rm -rf src pkg
-	rm -f PKGBUILD.[0-9]*
+	rm -f PKGBUILD.[0-9]* PKGBUILD *~
+
+# * ----------------------------------------------------------
+
+-include Project/Project.mk
+
+Project:
+	git clone -b project --single-branch . Project
+
+# * ----------------------------------------------------------
 
 $(info )
 
+# * ----------------------------------------------------------
