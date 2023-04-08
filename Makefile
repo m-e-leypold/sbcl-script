@@ -109,6 +109,9 @@ clean::
 Project:
 	git clone -b project --single-branch . Project
 
+project-setup: Project
+	make git-setup
+
 # * ----------------------------------------------------------
 
 $(info )
