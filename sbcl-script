@@ -1,0 +1,149 @@
+#!/usr/bin/env -S sbcl --script
+;; * --------------------------------------------------------*- common-lisp -*-|
+;; 
+;; sbcl-script --- Script runner for scripts written in Steel Bank Common Lisp
+;; Copyright (C) 2023 M E Leypold
+;;
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+;;
+
+(defpackage :de.m-e-leypold.sbcl-script
+  (:use :common-lisp)
+  (:use :sb-ext))
+
+(in-package :de.m-e-leypold.sbcl-script)
+
+;; * -- Manipulating path strings ---------------------------------------------|
+
+(defun path-absolute-p (path)
+
+  "Return true if path string is absolute (in the sense specified below),
+   nil otherwise.
+   This is a simple syntactical test on strings. A string decribing a
+   path is considered absolute if it starts with '/' or with a '~'."
+  
+  (let ((first-char (elt path 0)))
+    (or (equal first-char #\/) (equal first-char #\~))))
+
+(defun make-absolute (path)
+
+  "Expands relative paths (in the sense of PATH-ABSOLUTE-P) to absolute paths
+   by prepending the home directory of the user. Returns a list of PATHNAMEs.
+
+   Relative paths are paths that are not PATH-ABSOLUTE-P (see
+   there). They're considered relative to CL:USER-HOMEDIR-PATHNAME."
+  
+  (let ((p (concatenate 'string path "/")))
+    (if (path-absolute-p p)
+	(pathname p)
+	(merge-pathnames p (user-homedir-pathname)))))
+
+(defun expand-paths (paths &key basename)
+
+  "Expand a given list of paths with MAKE-ABSOLUTE and MERGE-PATHNAMES
+   with BASENAME.
+   This is a purely syntactical operation intended to give absolute
+   pathnames possibly with an appended basename.
+
+   > (expand-paths '(\"a\" \"/b\"))
+   (#P\"/home/mel/a/\" #P\"/b/\")
+   > (expand-paths '(\"a\" \"/b\") :basename \"foo.lisp\")
+   (#P\"/home/mel/a/foo.lisp\" #P\"/b/foo.lisp\")
+
+   Note that adding a (relative or absolute) directory part to
+   BASENAME does not work (as perhaps naively expected) and above all
+   is not caught as error case by the implementation."
+    
+  (let ((expanded-paths (mapcar #'make-absolute paths)))
+    (if basename
+	(mapcar #'(lambda (p) (merge-pathnames p basename)) expanded-paths)
+	expanded-paths)))
+
+(defun probe-paths (paths &key basename)
+
+  "Probe all path strings given and only return as TRUENAMEs those that
+   actually exist.
+   With a BASENAME given, probe for a file with the basename BASENAME
+   in every of the given paths, and return the TRUENAMEs of the files
+   found.
+   PATHS is supposed to be a list of strings encoding directory
+   paths. They might be relative to the home directory according to
+   PATH-ABSOLUTE-P."
+  
+  (remove-if-not #'(lambda (x) x)
+		 (mapcar #'probe-file
+			 (expand-paths paths :basename basename ))))
+
+;; * -- Loading the init files  -----------------------------------------------|
+
+(defparameter +init-files+
+  (list "/etc/sbclrc"
+	".sbclrc")  
+  "The files to be read as init files if they exist."
+  )
+
+(defun load-init-files ()
+  (dolist (path (probe-paths (reverse +init-files+)))
+    (load path)))
+
+
+;; * -- skip-hash-bang-line  --------------------------------------------------|
+
+(defun skip-hash-bang-line (stream)
+  "Skip the hash-bang line"
+  ;; From: https://github.com/sbcl/sbcl/blob/master/src/code/load.lisp/
+  (let ((p (file-position stream)))
+    (when p
+      (flet ((next () (read-byte stream nil)))
+        (unwind-protect
+             (when (and (eq (next) (char-code #\#))
+                        (eq (next) (char-code #\!)))
+               (setf p nil)
+               (loop for x = (next)
+                     until (or (not x) (eq x (char-code #\newline)))))
+          (when p
+            (file-position stream p)))))))
+
+;; * -- load-script  ----------------------------------------------------------|
+
+(defun load-script (script)
+  "Load a script, skipping the hash-bang line"
+  ;;
+  ;; Inspired by the sbcl implementation quoted at
+  ;; https://stackoverflow.com/questions/22822793/running-utf-8-encoded-scripts-with-steel-bank-common-lisp
+  ;;
+  ;; TODO: Take the full implementation and make verbosity and condition handling configurable
+  ;; 
+  (with-open-file
+      (f (native-pathname script) :element-type :default)
+    (skip-hash-bang-line f)
+    (load f :verbose nil :print nil)))
+
+
+;; * -- Actually loading the script from first arg ----------------------------|
+
+(setf sb-ext:*posix-argv* (cdr sb-ext:*posix-argv*))
+
+(load-init-files)
+
+(in-package :cl-user)
+(de.m-e-leypold.sbcl-script::load-script (car sb-ext:*posix-argv*))
+(quit)
+
+;; * --------------------------------------------------------------------------|
+;; Local Variables:
+;; eval: (progn (outshine-mode 1) (column-enforce-mode 1))
+;; fill-column: 95
+;; column-enforce-column: 95
+;; End:
