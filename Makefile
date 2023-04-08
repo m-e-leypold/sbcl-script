@@ -20,6 +20,8 @@ all::
 install::
 live-install::
 
+.ONESHELL:
+
 SHORT-NAME ?= $(shell echo "$(notdir $(CURDIR))" | sed 's|_.*||')
 
 -include Project/Project.mk
@@ -48,10 +50,12 @@ $(info USER-LISPDIR = $(USER-LISPDIR))
 $(info )
 
 install-lisp:
+	set -eu
 	mkdir -p $(DEST)$(LISPDIR)
 	install -m 644 $(LISPFILES) $(DEST)$(LISPDIR)
 
 install-bin:
+	set -eu
 	mkdir -p $(DEST)$(BINDIR)
 	install -m 755 $(BINFILES) $(DEST)$(BINDIR)/
 
