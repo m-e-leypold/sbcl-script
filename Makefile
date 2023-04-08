@@ -16,6 +16,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+# * Targets --------------------------------------------------
+
 all::
 install::
 live-install::
@@ -23,7 +25,12 @@ live-install::
 
 .ONESHELL:
 
+# * Software name --------------------------------------------
+
 SHORT-NAME ?= $(shell echo "$(notdir $(CURDIR))" | sed 's|_.*||')
+
+# * Installation ---------------------------------------------
+# ** Parameters ----------------------------------------------
 
 DEST       ?= $(CURDIR)/.stage
 PREFIX     ?= /usr/local
@@ -31,13 +38,15 @@ LISPDIR    ?= $(PREFIX)/share/common-lisp/source/$(SHORT-NAME)
 BINDIR     ?= $(PREFIX)/bin
 
 LISPFILES  ?= $(wildcard *.lisp *.asd)
-BINFILES   ?= $(patsubst ./%,%,$(shell find . -maxdepth 1 -mindepth 1 -executable -type f))
+BINFILES   ?= $(patsubst ./%,%,\
+                 $(shell find . -maxdepth 1 -mindepth 1 -executable -type f))
 
 LISPFILES   := $(strip $(LISPFILES))
 BINFILES    := $(strip $(BINFILES))
 
 USER-BINDIR   ?= $(lastword $(wildcard ~/my/scripts/bin ~/my/bin ~/bin))
-USER-LISPROOT ?= $(lastword $(wildcard ~/share/common-lisp/source ~/my/asdf ~/.asdf))
+USER-LISPROOT ?= $(lastword \
+                     $(wildcard ~/share/common-lisp/source ~/my/asdf ~/.asdf))
 USER-LISPDIR  := $(USER-LISPROOT)/$(SHORT-NAME)
 
 
@@ -47,6 +56,18 @@ $(info BINDIR       = $(BINDIR))
 $(info LISPDIR      = $(LISPDIR))
 $(info USER-BINDIR  = $(USER-BINDIR))
 $(info USER-LISPDIR = $(USER-LISPDIR))
+
+ifneq ($(LISPFILES),)
+  install:: install-lisp
+  live-install:: live-install-lisp
+endif
+
+ifneq ($(BINFILES),)
+  install:: install-bin
+  live-install:: live-install-bin
+endif
+
+# ** Staging for packaging (or direct installation) ----------
 
 install-lisp:
 	set -eu
@@ -58,18 +79,22 @@ install-bin:
 	mkdir -p $(DEST)$(BINDIR)
 	install -m 755 $(BINFILES) $(DEST)$(BINDIR)/
 
-ifneq ($(LISPFILES),)
-  install:: install-lisp
-endif
-
-ifneq ($(BINFILES),)
-  install:: install-bin
-endif
 
 clean::
 	rm -rf $(DEST)
 
-# * ----------------------------------------------------------
+# ** Live installation (with links) --------------------------
+
+live-install-lisp:
+	set -eu
+	rm -f $(USER-LISPDIR)
+	ln -s $(CURDIR) $(USER-LISPDIR)
+
+live-install-bin:
+	set -eu
+	ln -sf $(BINFILES:%=$(CURDIR)/%) $(USER-BINDIR)/
+
+# * Arch packages --------------------------------------------
 
 VERSION := $(shell git describe --tags)
 PKGVER  := $(shell echo "$(VERSION)" | sed 's|[-]|+|g' | tr '[A-Z]' '[a-z]')
@@ -102,7 +127,7 @@ clean::
 	rm -rf src pkg
 	rm -f PKGBUILD.[0-9]* PKGBUILD *~
 
-# * ----------------------------------------------------------
+# * Project integration --------------------------------------
 
 -include Project/Project.mk
 
@@ -112,8 +137,7 @@ Project:
 project-setup: Project
 	make git-setup
 
-# * ----------------------------------------------------------
+# * Epilog ---------------------------------------------------
 
 $(info )
 
-# * ----------------------------------------------------------
