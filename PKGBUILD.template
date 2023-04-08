@@ -1,0 +1,18 @@
+pkgname=__SHORTNAME__
+pkgver=__PKGVER__
+pkgrel=1
+pkgdesc='A demo how to deploy lisp applications (with SBCL)'
+arch=('any')
+license=('GPL')
+depends=('sbcl')
+source=(
+  "sbcl-script-__VERSION__.tar.gz"
+)
+b2sums=('SKIP')
+
+package() {
+    /bin/pwd
+    make install DEST=STAGE PREFIX=/usr
+    mv STAGE/* "$pkgdir"    
+}
+

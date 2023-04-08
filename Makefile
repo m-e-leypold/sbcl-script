@@ -41,13 +41,13 @@ USER-BINDIR   ?= $(lastword $(wildcard ~/my/scripts/bin ~/my/bin ~/bin))
 USER-LISPROOT ?= $(lastword $(wildcard ~/share/common-lisp/source ~/my/asdf ~/.asdf))
 USER-LISPDIR  := $(USER-LISPROOT)/$(SHORT-NAME)
 
+
 $(info PREFIX       = $(PREFIX))
 $(info DEST         = $(DEST))
 $(info BINDIR       = $(BINDIR))
 $(info LISPDIR      = $(LISPDIR))
 $(info USER-BINDIR  = $(USER-BINDIR))
 $(info USER-LISPDIR = $(USER-LISPDIR))
-$(info )
 
 install-lisp:
 	set -eu
@@ -70,4 +70,38 @@ endif
 clean::
 	rm -rf $(DEST)
 
+.PHONY: @always
+
+VERSION := $(shell git describe --tags)
+PKGVER  := $(shell echo "$(VERSION)" | sed 's|[-]|+|g' | tr '[A-Z]' '[a-z]')
+TARFILE := $(SHORT-NAME)-$(VERSION).tar.gz
+PACKAGE := $(SHORT-NAME)-$(PKGVER)-1-any.pkg.tar.zst
+
+$(info VERSION  = $(VERSION))
+$(info PKGVER   = $(PKGVER))
+$(info PACKAGE  = $(PACKAGE))
+
+PKGBUILD.$(VERSION):: PKGBUILD.template
+	sed <$< \
+            's|__PKGVER__|$(PKGVER)|g;s|__SHORTNAME__|$(SHORT-NAME)|g;s|__VERSION__|$(VERSION)|' \
+            >$@
+
+PKGBUILD: PKGBUILD.$(VERSION)
+	cp $< $@
+
+$(TARFILE):: PKGBUILD.$(VERSION)
+	git archive -o "$@" HEAD
+
+$(PACKAGE): $(TARFILE) PKGBUILD
+	rm -rf pkg src
+	makepkg -f
+
+package: $(PACKAGE)
+
+clean::
+	rm -f *.tar.gz *.zst
+	rm -rf src pkg
+	rm -f PKGBUILD.[0-9]*
+
+$(info )
 
