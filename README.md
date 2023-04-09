@@ -41,6 +41,16 @@ which should be replaced by
 
 when installing the script.
 
+Building an Arch Linux package
+------------------------------
+
+Run ```make package``` for this. This will expand
+```PKGBUILD.template``` and create a ```pacman``` package. The
+resulting ```PKGBUILD``` can be used for a starting point to get
+```sbcl-script``` into AUR or anothe package repository, but it
+typically is not sufficient, since no maintainer is stated, there is
+no checking of source checksums and no package signing.
+
 Caveats
 -------
 
@@ -65,6 +75,14 @@ ASDF systems should be done while temporarily redirecting
 	(let ((*standard-output* *error-output*))
 	  (asdf:load-system "some.system")
 	  (asdf:load-system "another.system"))
+
+More information
+----------------
+
+The [release
+announcment](https://www.glitzersachen.de/blog/2023-04-09_sbcl-script-1.0.1.html)
+at Glitzersachen.de explains a bit more on the background and what the
+motivation and intended use of this package are.
 
 License
 -------
